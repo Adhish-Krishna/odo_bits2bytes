@@ -1,0 +1,201 @@
+@import './Auth.css';
+
+.welcome-container {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  background: white;
+}
+
+.welcome-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+  gap: 0;
+}
+
+.welcome-left {
+  background: linear-gradient(135deg, #7ac243 0%, #5a9c2f 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  color: white;
+}
+
+.welcome-left-content {
+  text-align: center;
+  max-width: 400px;
+}
+
+.logo-section {
+  margin-bottom: 2rem;
+}
+
+.logo {
+  font-size: 5rem;
+  display: inline-block;
+  animation: float 3s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+.welcome-left h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  letter-spacing: -0.5px;
+}
+
+.welcome-left p {
+  font-size: 1.1rem;
+  opacity: 0.95;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+.welcome-features {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  text-align: left;
+}
+
+.feature {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.feature-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.feature-text {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.welcome-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2.5rem;
+  background: white;
+}
+
+.welcome-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 350px;
+}
+
+.btn-large {
+  padding: 1rem 1.25rem;
+  font-size: 1rem;
+  border-radius: 8px;
+}
+
+.btn-primary {
+  background-color: #7ac243;
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #6ba035;
+  box-shadow: 0 6px 20px rgba(122, 194, 67, 0.3);
+}
+
+.btn-secondary {
+  background-color: white;
+  color: #7ac243;
+  border: 2px solid #7ac243;
+  font-weight: 600;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #7ac243;
+  color: white;
+}
+
+.welcome-divider {
+  text-align: center;
+  margin: 1.5rem 0;
+  color: #999;
+  font-size: 0.85rem;
+  position: relative;
+  font-weight: 500;
+  width: 100%;
+  max-width: 350px;
+}
+
+.welcome-divider::before,
+.welcome-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 45%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, #e0e0e0, transparent);
+}
+
+.welcome-divider::before {
+  left: 0;
+}
+
+.welcome-divider::after {
+  right: 0;
+}
+
+.btn-google,
+.btn-apple {
+  color: #333;
+  font-weight: 500;
+  border: 1.5px solid #e0e0e0;
+  background-color: white;
+}
+
+.btn-google:hover:not(:disabled),
+.btn-apple:hover:not(:disabled) {
+  border-color: #7ac243;
+  background-color: #f5f5f5;
+}
+
+@media (max-width: 1024px) {
+  .welcome-content {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-left {
+    padding: 2rem;
+  }
+
+  .welcome-left h2 {
+    font-size: 2rem;
+  }
+
+  .logo {
+    font-size: 3.5rem;
+  }
+
+  .welcome-features {
+    display: none;
+  }
+}

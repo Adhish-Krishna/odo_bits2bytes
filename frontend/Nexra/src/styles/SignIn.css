@@ -1,0 +1,167 @@
+@import './Auth.css';
+
+.signin-container {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  background: white;
+}
+
+.signin-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  gap: 0;
+}
+
+.signin-left {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  color: white;
+  position: relative;
+  min-height: 100vh;
+}
+
+.signin-left-content {
+  text-align: center;
+  max-width: 400px;
+}
+
+.signin-left h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  letter-spacing: -0.5px;
+}
+
+.signin-left p {
+  font-size: 1rem;
+  opacity: 0.9;
+  line-height: 1.6;
+}
+
+.signin-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2.5rem;
+  background: white;
+  position: relative;
+  min-height: 100vh;
+}
+
+.signin-right-content {
+  width: 100%;
+  max-width: 380px;
+}
+
+.signin-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.signin-header h1 {
+  font-size: 1.8rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.signin-header p {
+  color: #999;
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+.signin-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.signin-content .back-button {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  margin-bottom: 0;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.signin-content .back-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.signin-divider {
+  text-align: center;
+  margin: 1.75rem 0;
+  color: #999;
+  font-size: 0.85rem;
+  position: relative;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.signin-divider::before,
+.signin-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 45%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, #e0e0e0, transparent);
+}
+
+.signin-divider::before {
+  left: 0;
+}
+
+.signin-divider::after {
+  right: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.signin-right {
+  animation: fadeIn 0.4s ease;
+}
+
+@media (max-width: 1024px) {
+  .signin-content {
+    grid-template-columns: 1fr;
+  }
+
+  .signin-left {
+    min-height: auto;
+    padding: 2rem;
+  }
+
+  .signin-right {
+    min-height: auto;
+  }
+
+  .signin-left h2 {
+    font-size: 2rem;
+  }
+}
