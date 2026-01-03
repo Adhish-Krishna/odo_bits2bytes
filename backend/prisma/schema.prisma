@@ -1,0 +1,264 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============== ENUMS ==============
+
+enum TripStatus {
+  DRAFT
+  PLANNING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ActivityCategory {
+  SIGHTSEEING
+  FOOD_TOUR
+  ADVENTURE
+  CULTURAL
+  RELAXATION
+  NIGHTLIFE
+  SHOPPING
+  TRANSPORTATION
+}
+
+enum BudgetCategory {
+  TRANSPORT
+  ACCOMMODATION
+  FOOD
+  ACTIVITIES
+  SHOPPING
+  MISCELLANEOUS
+}
+
+enum SharePermission {
+  VIEW_ONLY
+  CAN_EDIT
+  CAN_COPY
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// ============== MODELS ==============
+
+// User Model
+// Stores user account information and preferences
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  avatarUrl    String?
+  language     String   @default("en")
+  currency     String   @default("USD")
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  trips         Trip[]
+  savedCities   SavedCity[]
+  sharedTrips   SharedTrip[] @relation("SharedBy")
+  receivedTrips SharedTrip[] @relation("SharedWith")
+
+  @@map("users")
+}
+
+// Trip Model
+// Represents a user's travel plan
+model Trip {
+  id            String     @id @default(uuid())
+  userId        String
+  name          String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime
+  totalBudget   Decimal?   @db.Decimal(10, 2)
+  coverPhotoUrl String?
+  status        TripStatus @default(DRAFT)
+  aiGenerated   Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // Relations
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itineraries Itinerary[]
+  budgets     TripBudget[]
+  shares      SharedTrip[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("trips")
+}
+
+// City Model
+// Master data for cities/destinations
+model City {
+  id              String   @id @default(uuid())
+  name            String
+  country         String
+  continent       String?
+  imageUrl        String?
+  avgDailyCost    Decimal? @db.Decimal(10, 2)
+  currency        String?
+  popularityScore Int?     @default(0)
+  latitude        Float?
+  longitude       Float?
+  metaInfo        Json? // Flexible field for additional city data
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  activities  Activity[]
+  itineraries Itinerary[]
+  savedBy     SavedCity[]
+
+  @@unique([name, country])
+  @@index([country])
+  @@index([popularityScore])
+  @@map("cities")
+}
+
+// Activity Model
+// Things to do in a city
+model Activity {
+  id              String           @id @default(uuid())
+  cityId          String
+  name            String
+  description     String?
+  imageUrl        String?
+  category        ActivityCategory
+  estimatedCost   Decimal          @db.Decimal(10, 2)
+  durationMinutes Int              @default(60)
+  rating          Float?           @default(0)
+  address         String?
+  latitude        Float?
+  longitude       Float?
+  openingHours    Json? // { monday: "9:00-17:00", ... }
+  tags            String[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  city                City                @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  itineraryActivities ItineraryActivity[]
+
+  @@index([cityId])
+  @@index([category])
+  @@map("activities")
+}
+
+// Itinerary Model
+// Represents a day/stop in the trip
+model Itinerary {
+  id         String   @id @default(uuid())
+  tripId     String
+  cityId     String
+  dayNumber  Int
+  date       DateTime
+  notes      String?
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  trip       Trip                @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  city       City                @relation(fields: [cityId], references: [id])
+  activities ItineraryActivity[]
+
+  @@unique([tripId, dayNumber])
+  @@index([tripId])
+  @@index([cityId])
+  @@map("itineraries")
+}
+
+// ItineraryActivity Model
+// Links activities to specific times in an itinerary day
+model ItineraryActivity {
+  id          String   @id @default(uuid())
+  itineraryId String
+  activityId  String
+  startTime   DateTime @db.Time
+  endTime     DateTime @db.Time
+  customNotes String?
+  customCost  Decimal? @db.Decimal(10, 2)
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  itinerary Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  activity  Activity  @relation(fields: [activityId], references: [id])
+
+  @@index([itineraryId])
+  @@index([activityId])
+  @@map("itinerary_activities")
+}
+
+// TripBudget Model
+// Budget breakdown by category for a trip
+model TripBudget {
+  id              String         @id @default(uuid())
+  tripId          String
+  category        BudgetCategory
+  allocatedAmount Decimal        @db.Decimal(10, 2)
+  spentAmount     Decimal        @default(0) @db.Decimal(10, 2)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, category])
+  @@index([tripId])
+  @@map("trip_budgets")
+}
+
+// SharedTrip Model
+// Handles trip sharing between users
+model SharedTrip {
+  id           String          @id @default(uuid())
+  tripId       String
+  sharedById   String
+  sharedWithId String? // Null if shared via public link
+  publicSlug   String?         @unique
+  permission   SharePermission @default(VIEW_ONLY)
+  expiresAt    DateTime?
+  createdAt    DateTime        @default(now())
+
+  // Relations
+  trip       Trip  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  sharedBy   User  @relation("SharedBy", fields: [sharedById], references: [id])
+  sharedWith User? @relation("SharedWith", fields: [sharedWithId], references: [id])
+
+  @@index([tripId])
+  @@index([publicSlug])
+  @@map("shared_trips")
+}
+
+// SavedCity Model
+// User's wishlist/saved destinations
+model SavedCity {
+  id      String   @id @default(uuid())
+  userId  String
+  cityId  String
+  savedAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city City @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cityId])
+  @@index([userId])
+  @@map("saved_cities")
+}
