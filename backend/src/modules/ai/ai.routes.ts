@@ -21,10 +21,76 @@ const setSSEHeaders = (res: Response) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
-    res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
+    res.setHeader("X-Accel-Buffering", "no");
 };
 
-// POST /ai/generate-itinerary - Generate complete itinerary (SSE stream)
+// Type definitions for Prisma query results
+interface ActivityData {
+    name: string;
+    estimatedCost: any;
+    category: string;
+    durationMinutes: number;
+}
+
+interface ItineraryActivityData {
+    activity: ActivityData;
+    customCost: any;
+    startTime: Date;
+    endTime: Date;
+}
+
+interface ItineraryData {
+    city: { name: string };
+    activities: ItineraryActivityData[];
+}
+
+interface BudgetData {
+    category: string;
+    allocatedAmount: any;
+    spentAmount: any;
+}
+
+interface CityWithActivities {
+    name: string;
+    activities: ActivityData[];
+}
+
+interface DayWithCityAndActivities {
+    city: CityWithActivities;
+    activities: ItineraryActivityData[];
+}
+
+/**
+ * @openapi
+ * /api/v1/ai/generate-itinerary:
+ *   post:
+ *     tags: [AI]
+ *     summary: Generate AI itinerary (SSE stream)
+ *     description: |
+ *       Uses AI to generate a complete travel itinerary based on a prompt.
+ *       Returns a Server-Sent Events (SSE) stream with real-time AI response.
+ *       
+ *       **SSE Event Types:**
+ *       - `thinking` - AI is processing
+ *       - `content` - Partial response content
+ *       - `done` - Generation complete
+ *       - `error` - Error occurred
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/GenerateItineraryRequest'
+ *     responses:
+ *       200:
+ *         description: SSE stream of AI-generated itinerary
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ */
 router.post(
     "/generate-itinerary",
     validate(generateItinerarySchema),
@@ -34,7 +100,6 @@ router.post(
         setSSEHeaders(res);
 
         try {
-            // Send initial thinking state
             res.write(
                 `data: ${JSON.stringify({ type: "thinking", content: "Analyzing your travel preferences..." })}\n\n`
             );
@@ -87,14 +152,12 @@ Format your response as a JSON object with this structure:
                 prompt: fullPrompt,
             });
 
-            // Stream the response
             for await (const chunk of textStream) {
                 res.write(
                     `data: ${JSON.stringify({ type: "content", content: chunk })}\n\n`
                 );
             }
 
-            // Send completion
             res.write(
                 `data: ${JSON.stringify({ type: "done", content: { saveToTripId } })}\n\n`
             );
@@ -109,33 +172,57 @@ Format your response as a JSON object with this structure:
     })
 );
 
-// Type definitions for Prisma query results
-interface ActivityData {
-    name: string;
-    estimatedCost: any;
-    category: string;
-    durationMinutes: number;
-}
-
-interface ItineraryActivityData {
-    activity: ActivityData;
-    customCost: any;
-    startTime: Date;
-    endTime: Date;
-}
-
-interface ItineraryData {
-    city: { name: string };
-    activities: ItineraryActivityData[];
-}
-
-interface BudgetData {
-    category: string;
-    allocatedAmount: any;
-    spentAmount: any;
-}
-
-// POST /ai/suggest-activities - Get AI activity suggestions (SSE stream)
+/**
+ * @openapi
+ * /api/v1/ai/suggest-activities:
+ *   post:
+ *     tags: [AI]
+ *     summary: Get AI activity suggestions (SSE stream)
+ *     description: |
+ *       AI suggests activities for a city based on preferences and existing plans.
+ *       Returns SSE stream with suggestions.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [cityId]
+ *             properties:
+ *               cityId:
+ *                 type: string
+ *                 format: uuid
+ *               existingActivities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: IDs of already planned activities
+ *               preferences:
+ *                 type: object
+ *                 properties:
+ *                   budget:
+ *                     type: number
+ *                   interests:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *               timeSlot:
+ *                 type: object
+ *                 properties:
+ *                   start:
+ *                     type: string
+ *                   end:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: SSE stream of activity suggestions
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ */
 router.post(
     "/suggest-activities",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -144,7 +231,6 @@ router.post(
         setSSEHeaders(res);
 
         try {
-            // Get city info
             const city = await prisma.city.findUnique({
                 where: { id: cityId },
                 include: { activities: { take: 50 } },
@@ -210,7 +296,36 @@ Format as JSON array: [{"name": "...", "reason": "...", "fitScore": 0.95}]
     })
 );
 
-// POST /ai/optimize-route - Optimize day's route (SSE stream)
+/**
+ * @openapi
+ * /api/v1/ai/optimize-route:
+ *   post:
+ *     tags: [AI]
+ *     summary: Optimize day's route (SSE stream)
+ *     description: |
+ *       AI analyzes activities for a day and suggests optimal ordering
+ *       to minimize travel time and improve experience.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [itineraryDayId]
+ *             properties:
+ *               itineraryDayId:
+ *                 type: string
+ *                 format: uuid
+ *     responses:
+ *       200:
+ *         description: SSE stream with route optimization
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ */
 router.post(
     "/optimize-route",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -279,7 +394,36 @@ Respond with JSON: {"optimizedOrder": ["activity-name-1", "activity-name-2"], "t
     })
 );
 
-// POST /ai/budget-advisor - Get AI budget advice (SSE stream)
+/**
+ * @openapi
+ * /api/v1/ai/budget-advisor:
+ *   post:
+ *     tags: [AI]
+ *     summary: Get AI budget advice (SSE stream)
+ *     description: |
+ *       AI analyzes trip budget and provides recommendations for
+ *       savings and optimal allocation.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [tripId]
+ *             properties:
+ *               tripId:
+ *                 type: string
+ *                 format: uuid
+ *     responses:
+ *       200:
+ *         description: SSE stream with budget analysis
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ */
 router.post(
     "/budget-advisor",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -371,7 +515,49 @@ Format as JSON: {"healthScore": 85, "assessment": "...", "savingTips": ["..."], 
     })
 );
 
-// POST /ai/chat - Chat with travel assistant (SSE stream)
+/**
+ * @openapi
+ * /api/v1/ai/chat:
+ *   post:
+ *     tags: [AI]
+ *     summary: Chat with travel assistant (SSE stream)
+ *     description: |
+ *       Interactive chat with an AI travel assistant.
+ *       Supports conversation context and trip-specific queries.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [messages]
+ *             properties:
+ *               messages:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     role:
+ *                       type: string
+ *                       enum: [user, assistant]
+ *                     content:
+ *                       type: string
+ *               tripContext:
+ *                 type: object
+ *                 properties:
+ *                   tripId:
+ *                     type: string
+ *                     format: uuid
+ *     responses:
+ *       200:
+ *         description: SSE stream of chat response
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ */
 router.post(
     "/chat",
     validate(aiChatSchema),
@@ -383,7 +569,6 @@ router.post(
         try {
             let contextInfo = "";
 
-            // Load trip context if provided
             if (tripContext?.tripId) {
                 const trip = await prisma.trip.findFirst({
                     where: { id: tripContext.tripId, userId: req.user!.id },
@@ -405,7 +590,6 @@ Current Trip Context:
                 }
             }
 
-            // Format messages for the AI
             const formattedMessages = (
                 messages as Array<{ role: string; content: string }>
             ).map((m) => ({
@@ -440,19 +624,42 @@ Current Trip Context:
     })
 );
 
-// Type for city with activities
-interface CityWithActivities {
-    name: string;
-    activities: ActivityData[];
-}
-
-// Type for day with city and activities
-interface DayWithCityAndActivities {
-    city: CityWithActivities;
-    activities: ItineraryActivityData[];
-}
-
-// POST /ai/enhance-day - AI fills gaps in a manually created day
+/**
+ * @openapi
+ * /api/v1/ai/enhance-day:
+ *   post:
+ *     tags: [AI]
+ *     summary: AI enhance day itinerary (SSE stream)
+ *     description: |
+ *       AI fills gaps in a manually created day's schedule,
+ *       suggesting activities based on user instructions.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [tripId, dayId, instruction]
+ *             properties:
+ *               tripId:
+ *                 type: string
+ *                 format: uuid
+ *               dayId:
+ *                 type: string
+ *                 format: uuid
+ *               instruction:
+ *                 type: string
+ *                 example: Add some evening activities and a nice dinner spot
+ *     responses:
+ *       200:
+ *         description: SSE stream with enhancement suggestions
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ */
 router.post(
     "/enhance-day",
     asyncHandler(async (req: AuthRequest, res: Response) => {

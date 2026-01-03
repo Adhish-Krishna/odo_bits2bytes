@@ -35,7 +35,66 @@ interface TripBudgetData {
     allocatedAmount: any;
 }
 
-// POST /trips/:tripId/share - Generate share link
+/**
+ * @openapi
+ * /api/v1/sharing/trips/{tripId}/share:
+ *   post:
+ *     tags: [Sharing]
+ *     summary: Create share link for a trip
+ *     description: Generates a public share link or shares with a specific user
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               permission:
+ *                 type: string
+ *                 enum: [VIEW_ONLY, CAN_EDIT, CAN_COPY]
+ *                 default: VIEW_ONLY
+ *               sharedWithEmail:
+ *                 type: string
+ *                 format: email
+ *                 description: Optional - share with specific user
+ *               expiresInDays:
+ *                 type: integer
+ *                 description: Optional - days until link expires
+ *     responses:
+ *       201:
+ *         description: Share link created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     publicSlug:
+ *                       type: string
+ *                     shareUrl:
+ *                       type: string
+ *                     permission:
+ *                       type: string
+ *                     expiresAt:
+ *                       type: string
+ *                       format: date-time
+ *       404:
+ *         description: Trip or user not found
+ */
 router.post(
     "/trips/:tripId/share",
     authMiddleware,
@@ -44,7 +103,6 @@ router.post(
         const { tripId } = req.params;
         const { permission, sharedWithEmail, expiresInDays } = req.body;
 
-        // Verify ownership
         const trip = await prisma.trip.findFirst({
             where: { id: tripId, userId: req.user!.id },
         });
@@ -55,7 +113,6 @@ router.post(
 
         let sharedWithId: string | null = null;
 
-        // If sharing with specific user
         if (sharedWithEmail) {
             const sharedUser = await prisma.user.findUnique({
                 where: { email: sharedWithEmail },
@@ -68,10 +125,8 @@ router.post(
             sharedWithId = sharedUser.id;
         }
 
-        // Generate public slug
         const publicSlug = randomBytes(8).toString("hex");
 
-        // Calculate expiration
         const expiresAt = expiresInDays
             ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
             : null;
@@ -99,7 +154,30 @@ router.post(
     })
 );
 
-// GET /shared/:slug - View shared trip (public)
+/**
+ * @openapi
+ * /api/v1/sharing/{slug}:
+ *   get:
+ *     tags: [Sharing]
+ *     summary: View shared trip
+ *     description: Returns trip details for a shared link. Authentication is optional - some shares may be public.
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The public share slug
+ *     responses:
+ *       200:
+ *         description: Shared trip details
+ *       403:
+ *         description: Not authorized to view this trip
+ *       404:
+ *         description: Shared trip not found
+ *       410:
+ *         description: Share link has expired
+ */
 router.get(
     "/:slug",
     optionalAuthMiddleware,
@@ -137,12 +215,10 @@ router.get(
             return sendError(res, "Shared trip not found", 404);
         }
 
-        // Check expiration
         if (share.expiresAt && new Date() > share.expiresAt) {
             return sendError(res, "Share link has expired", 410);
         }
 
-        // If shared with specific user, verify
         if (share.sharedWithId && req.user?.id !== share.sharedWithId) {
             return sendError(res, "Not authorized to view this trip", 403);
         }
@@ -156,7 +232,29 @@ router.get(
     })
 );
 
-// POST /shared/:slug/copy - Copy shared trip to my trips
+/**
+ * @openapi
+ * /api/v1/sharing/{slug}/copy:
+ *   post:
+ *     tags: [Sharing]
+ *     summary: Copy shared trip to my trips
+ *     description: Creates a copy of a shared trip in the authenticated user's account
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       201:
+ *         description: Trip copied successfully
+ *       403:
+ *         description: Copy not allowed for this share
+ *       404:
+ *         description: Shared trip not found
+ */
 router.post(
     "/:slug/copy",
     authMiddleware,
@@ -181,12 +279,10 @@ router.post(
             return sendError(res, "Shared trip not found", 404);
         }
 
-        // Check if copy permission
         if (share.permission === "VIEW_ONLY") {
             return sendError(res, "Copy not allowed for this share", 403);
         }
 
-        // Create copy
         const newTrip = await prisma.trip.create({
             data: {
                 userId: req.user!.id,
@@ -232,14 +328,40 @@ router.post(
     })
 );
 
-// DELETE /trips/:tripId/share/:shareId - Revoke share
+/**
+ * @openapi
+ * /api/v1/sharing/trips/{tripId}/share/{shareId}:
+ *   delete:
+ *     tags: [Sharing]
+ *     summary: Revoke a share
+ *     description: Removes a share link, preventing further access
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *       - in: path
+ *         name: shareId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Share revoked
+ *       404:
+ *         description: Trip not found
+ */
 router.delete(
     "/trips/:tripId/share/:shareId",
     authMiddleware,
     asyncHandler(async (req: AuthRequest, res: Response) => {
         const { tripId, shareId } = req.params;
 
-        // Verify ownership
         const trip = await prisma.trip.findFirst({
             where: { id: tripId, userId: req.user!.id },
         });
@@ -256,14 +378,34 @@ router.delete(
     })
 );
 
-// GET /trips/:tripId/shares - List all shares for a trip
+/**
+ * @openapi
+ * /api/v1/sharing/trips/{tripId}/shares:
+ *   get:
+ *     tags: [Sharing]
+ *     summary: List all shares for a trip
+ *     description: Returns all active share links for a trip
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: List of shares
+ *       404:
+ *         description: Trip not found
+ */
 router.get(
     "/trips/:tripId/shares",
     authMiddleware,
     asyncHandler(async (req: AuthRequest, res: Response) => {
         const { tripId } = req.params;
 
-        // Verify ownership
         const trip = await prisma.trip.findFirst({
             where: { id: tripId, userId: req.user!.id },
         });

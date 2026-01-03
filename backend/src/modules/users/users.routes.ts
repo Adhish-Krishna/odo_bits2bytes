@@ -11,7 +11,32 @@ const router = Router();
 // All routes require authentication
 router.use(authMiddleware);
 
-// GET /users/me - Get current user profile
+/**
+ * @openapi
+ * /api/v1/users/me:
+ *   get:
+ *     tags: [Users]
+ *     summary: Get current user profile
+ *     description: Returns the authenticated user's profile information
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ */
 router.get(
     "/me",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -44,7 +69,40 @@ router.get(
     })
 );
 
-// PATCH /users/me - Update profile
+/**
+ * @openapi
+ * /api/v1/users/me:
+ *   patch:
+ *     tags: [Users]
+ *     summary: Update user profile
+ *     description: Updates the authenticated user's profile information
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: John Doe
+ *               avatarUrl:
+ *                 type: string
+ *                 format: uri
+ *               language:
+ *                 type: string
+ *                 example: en
+ *               currency:
+ *                 type: string
+ *                 example: USD
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       401:
+ *         description: Unauthorized
+ */
 router.patch(
     "/me",
     validate(updateProfileSchema),
@@ -74,7 +132,21 @@ router.patch(
     })
 );
 
-// DELETE /users/me - Delete account
+/**
+ * @openapi
+ * /api/v1/users/me:
+ *   delete:
+ *     tags: [Users]
+ *     summary: Delete user account
+ *     description: Permanently deletes the authenticated user's account and all associated data
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ *       401:
+ *         description: Unauthorized
+ */
 router.delete(
     "/me",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -86,7 +158,30 @@ router.delete(
     })
 );
 
-// GET /users/me/saved-cities - Get saved cities
+/**
+ * @openapi
+ * /api/v1/users/me/saved-cities:
+ *   get:
+ *     tags: [Users]
+ *     summary: Get saved cities
+ *     description: Returns the user's list of saved/wishlisted cities
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of saved cities
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/City'
+ */
 router.get(
     "/me/saved-cities",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -105,13 +200,36 @@ router.get(
     })
 );
 
-// POST /users/me/saved-cities/:cityId - Save a city
+/**
+ * @openapi
+ * /api/v1/users/me/saved-cities/{cityId}:
+ *   post:
+ *     tags: [Users]
+ *     summary: Save a city
+ *     description: Adds a city to the user's wishlist
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: cityId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The city ID to save
+ *     responses:
+ *       201:
+ *         description: City saved successfully
+ *       404:
+ *         description: City not found
+ *       409:
+ *         description: City already saved
+ */
 router.post(
     "/me/saved-cities/:cityId",
     asyncHandler(async (req: AuthRequest, res: Response) => {
         const { cityId } = req.params;
 
-        // Check if city exists
         const city = await prisma.city.findUnique({
             where: { id: cityId },
         });
@@ -120,7 +238,6 @@ router.post(
             return sendError(res, "City not found", 404);
         }
 
-        // Check if already saved
         const existing = await prisma.savedCity.findUnique({
             where: {
                 userId_cityId: {
@@ -145,7 +262,27 @@ router.post(
     })
 );
 
-// DELETE /users/me/saved-cities/:cityId - Remove saved city
+/**
+ * @openapi
+ * /api/v1/users/me/saved-cities/{cityId}:
+ *   delete:
+ *     tags: [Users]
+ *     summary: Remove saved city
+ *     description: Removes a city from the user's wishlist
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: cityId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The city ID to remove
+ *     responses:
+ *       200:
+ *         description: City removed from saved
+ */
 router.delete(
     "/me/saved-cities/:cityId",
     asyncHandler(async (req: AuthRequest, res: Response) => {

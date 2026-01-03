@@ -12,7 +12,60 @@ const router = Router();
 // All routes require authentication
 router.use(authMiddleware);
 
-// GET /cities - Search/list cities
+/**
+ * @openapi
+ * /api/v1/cities:
+ *   get:
+ *     tags: [Cities]
+ *     summary: Search and list cities
+ *     description: Returns a paginated list of cities with optional filters
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by city name or country
+ *       - in: query
+ *         name: country
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: continent
+ *         schema:
+ *           type: string
+ *           enum: [Europe, Asia, North America, South America, Africa, Oceania]
+ *       - in: query
+ *         name: minCost
+ *         schema:
+ *           type: number
+ *         description: Minimum average daily cost
+ *       - in: query
+ *         name: maxCost
+ *         schema:
+ *           type: number
+ *         description: Maximum average daily cost
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [name, popularity, cost]
+ *           default: name
+ *     responses:
+ *       200:
+ *         description: Paginated list of cities
+ */
 router.get(
     "/",
     validate(citySearchSchema, "query"),
@@ -73,7 +126,30 @@ router.get(
     })
 );
 
-// GET /cities/popular - Get trending cities
+/**
+ * @openapi
+ * /api/v1/cities/popular:
+ *   get:
+ *     tags: [Cities]
+ *     summary: Get popular/trending cities
+ *     description: Returns the top 10 most popular destinations
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of popular cities
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/City'
+ */
 router.get(
     "/popular",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -91,7 +167,28 @@ router.get(
     })
 );
 
-// GET /cities/:id - Get city details
+/**
+ * @openapi
+ * /api/v1/cities/{id}:
+ *   get:
+ *     tags: [Cities]
+ *     summary: Get city details
+ *     description: Returns detailed information about a specific city including top activities
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: City details with activities
+ *       404:
+ *         description: City not found
+ */
 router.get(
     "/:id",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -118,7 +215,43 @@ router.get(
     })
 );
 
-// GET /cities/:cityId/activities - Get all activities in a city
+/**
+ * @openapi
+ * /api/v1/cities/{cityId}/activities:
+ *   get:
+ *     tags: [Cities]
+ *     summary: Get activities in a city
+ *     description: Returns all activities available in a specific city with optional filters
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: cityId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *           enum: [SIGHTSEEING, FOOD_TOUR, ADVENTURE, CULTURAL, RELAXATION, NIGHTLIFE, SHOPPING, TRANSPORTATION]
+ *       - in: query
+ *         name: minCost
+ *         schema:
+ *           type: number
+ *       - in: query
+ *         name: maxCost
+ *         schema:
+ *           type: number
+ *       - in: query
+ *         name: minRating
+ *         schema:
+ *           type: number
+ *     responses:
+ *       200:
+ *         description: List of activities
+ */
 router.get(
     "/:cityId/activities",
     asyncHandler(async (req: AuthRequest, res: Response) => {

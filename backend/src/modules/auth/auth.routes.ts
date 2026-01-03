@@ -26,7 +26,29 @@ const generateTokens = (userId: string, email: string, role: string) => {
     return { accessToken, refreshToken };
 };
 
-// POST /auth/register
+/**
+ * @openapi
+ * /api/v1/auth/register:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Register a new user
+ *     description: Creates a new user account and returns JWT tokens
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RegisterRequest'
+ *     responses:
+ *       201:
+ *         description: Registration successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       409:
+ *         description: Email already registered
+ */
 router.post(
     "/register",
     validate(registerSchema),
@@ -78,7 +100,29 @@ router.post(
     })
 );
 
-// POST /auth/login
+/**
+ * @openapi
+ * /api/v1/auth/login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Login user
+ *     description: Authenticates user and returns JWT tokens
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       401:
+ *         description: Invalid credentials
+ */
 router.post(
     "/login",
     validate(loginSchema),
@@ -118,7 +162,29 @@ router.post(
     })
 );
 
-// POST /auth/refresh
+/**
+ * @openapi
+ * /api/v1/auth/refresh:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Refresh access token
+ *     description: Returns new access and refresh tokens
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refreshToken]
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Tokens refreshed
+ *       401:
+ *         description: Invalid refresh token
+ */
 router.post(
     "/refresh",
     asyncHandler(async (req: Request, res: Response) => {

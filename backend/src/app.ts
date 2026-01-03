@@ -1,7 +1,9 @@
 import express, { Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
+import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env.config";
+import { swaggerSpec } from "./config/swagger.config";
 import { errorMiddleware, notFoundHandler } from "./middleware/error.middleware";
 
 // Import routes
@@ -19,7 +21,7 @@ const app: Express = express();
 
 // Security middleware
 app.use(helmet({
-    contentSecurityPolicy: false, // Disable for SSE
+    contentSecurityPolicy: false, // Disable for SSE and Swagger UI
 }));
 
 // CORS
@@ -34,7 +36,40 @@ app.use(cors({
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// Swagger API Documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: "Globe Trotter API Docs",
+}));
+
+// Serve OpenAPI spec as JSON
+app.get("/api-docs.json", (req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.send(swaggerSpec);
+});
+
 // Health check
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     summary: Health check endpoint
+ *     description: Returns server health status
+ *     responses:
+ *       200:
+ *         description: Server is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
 app.get("/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
 });

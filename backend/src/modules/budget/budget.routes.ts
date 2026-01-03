@@ -18,7 +18,68 @@ const verifyTripOwnership = async (tripId: string, userId: string) => {
     });
 };
 
-// GET /trips/:tripId/budget - Get budget breakdown
+/**
+ * @openapi
+ * /api/v1/trips/{tripId}/budget:
+ *   get:
+ *     tags: [Budget]
+ *     summary: Get trip budget breakdown
+ *     description: Returns detailed budget breakdown with allocations, spending, and warnings
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Budget breakdown
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalBudget:
+ *                       type: number
+ *                       nullable: true
+ *                     totalAllocated:
+ *                       type: number
+ *                     totalSpent:
+ *                       type: number
+ *                     remaining:
+ *                       type: number
+ *                     estimatedActivityCosts:
+ *                       type: number
+ *                     breakdown:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           category:
+ *                             type: string
+ *                           allocated:
+ *                             type: number
+ *                           spent:
+ *                             type: number
+ *                           percentage:
+ *                             type: integer
+ *                           isOverBudget:
+ *                             type: boolean
+ *                     overBudgetWarnings:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *       404:
+ *         description: Trip not found
+ */
 router.get(
     "/",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -33,7 +94,6 @@ router.get(
             where: { tripId },
         });
 
-        // Calculate totals with explicit types
         const totalAllocated = budgets.reduce(
             (sum: number, b) => sum + Number(b.allocatedAmount),
             0
@@ -43,7 +103,6 @@ router.get(
             0
         );
 
-        // Calculate from itinerary activities
         const itineraryActivities = await prisma.itineraryActivity.findMany({
             where: {
                 itinerary: { tripId },
@@ -61,7 +120,6 @@ router.get(
             0
         );
 
-        // Format breakdown with percentages
         const breakdown = budgets.map((b) => ({
             category: b.category,
             allocated: Number(b.allocatedAmount),
@@ -73,7 +131,6 @@ router.get(
             isOverBudget: Number(b.spentAmount) > Number(b.allocatedAmount),
         }));
 
-        // Generate warnings
         const overBudgetWarnings = breakdown
             .filter((b) => b.isOverBudget)
             .map(
@@ -93,7 +150,48 @@ router.get(
     })
 );
 
-// POST /trips/:tripId/budget - Set budget allocations
+/**
+ * @openapi
+ * /api/v1/trips/{tripId}/budget:
+ *   post:
+ *     tags: [Budget]
+ *     summary: Set budget allocations
+ *     description: Creates or updates budget allocations for different categories
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [allocations]
+ *             properties:
+ *               allocations:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [category, amount]
+ *                   properties:
+ *                     category:
+ *                       type: string
+ *                       enum: [TRANSPORT, ACCOMMODATION, FOOD, ACTIVITIES, SHOPPING, MISCELLANEOUS]
+ *                     amount:
+ *                       type: number
+ *                       example: 500
+ *     responses:
+ *       200:
+ *         description: Budget allocations updated
+ *       404:
+ *         description: Trip not found
+ */
 router.post(
     "/",
     validate(setBudgetSchema),
@@ -106,7 +204,6 @@ router.post(
             return sendError(res, "Trip not found", 404);
         }
 
-        // Upsert each budget category
         await Promise.all(
             (allocations as Array<{ category: string; amount: number }>).map((alloc) =>
                 prisma.tripBudget.upsert({
@@ -135,7 +232,45 @@ router.post(
     })
 );
 
-// PATCH /trips/:tripId/budget/:category - Update category budget/spending
+/**
+ * @openapi
+ * /api/v1/trips/{tripId}/budget/{category}:
+ *   patch:
+ *     tags: [Budget]
+ *     summary: Update category budget
+ *     description: Updates allocated or spent amount for a specific budget category
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *       - in: path
+ *         name: category
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [TRANSPORT, ACCOMMODATION, FOOD, ACTIVITIES, SHOPPING, MISCELLANEOUS]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               allocatedAmount:
+ *                 type: number
+ *               spentAmount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Budget category updated
+ *       404:
+ *         description: Trip not found
+ */
 router.patch(
     "/:category",
     asyncHandler(async (req: AuthRequest, res: Response) => {

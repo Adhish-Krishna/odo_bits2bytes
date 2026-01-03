@@ -15,7 +15,39 @@ const router = Router();
 // All routes require authentication
 router.use(authMiddleware);
 
-// GET /trips - List all user's trips
+/**
+ * @openapi
+ * /api/v1/trips:
+ *   get:
+ *     tags: [Trips]
+ *     summary: List all user's trips
+ *     description: Returns a paginated list of the authenticated user's trips
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [DRAFT, PLANNING, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED]
+ *     responses:
+ *       200:
+ *         description: Paginated list of trips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PaginatedResponse'
+ */
 router.get(
     "/",
     validate(paginationSchema, "query"),
@@ -55,7 +87,36 @@ router.get(
     })
 );
 
-// POST /trips - Create new trip
+/**
+ * @openapi
+ * /api/v1/trips:
+ *   post:
+ *     tags: [Trips]
+ *     summary: Create a new trip
+ *     description: Creates a new trip for the authenticated user
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateTripRequest'
+ *     responses:
+ *       201:
+ *         description: Trip created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Trip'
+ *       400:
+ *         description: Validation error
+ */
 router.post(
     "/",
     validate(createTripSchema),
@@ -79,7 +140,28 @@ router.post(
     })
 );
 
-// GET /trips/:id - Get trip details
+/**
+ * @openapi
+ * /api/v1/trips/{id}:
+ *   get:
+ *     tags: [Trips]
+ *     summary: Get trip details
+ *     description: Returns detailed information about a specific trip including itineraries and budgets
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Trip details
+ *       404:
+ *         description: Trip not found
+ */
 router.get(
     "/:id",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -113,7 +195,28 @@ router.get(
     })
 );
 
-// GET /trips/:id/full - Get trip with full itinerary (same as above but explicit)
+/**
+ * @openapi
+ * /api/v1/trips/{id}/full:
+ *   get:
+ *     tags: [Trips]
+ *     summary: Get full trip with all details
+ *     description: Returns complete trip information including itineraries, activities, budgets, and shares
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Full trip details
+ *       404:
+ *         description: Trip not found
+ */
 router.get(
     "/:id/full",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -148,14 +251,56 @@ router.get(
     })
 );
 
-// PATCH /trips/:id - Update trip
+/**
+ * @openapi
+ * /api/v1/trips/{id}:
+ *   patch:
+ *     tags: [Trips]
+ *     summary: Update a trip
+ *     description: Updates trip properties (name, dates, budget, status, etc.)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               startDate:
+ *                 type: string
+ *                 format: date
+ *               endDate:
+ *                 type: string
+ *                 format: date
+ *               totalBudget:
+ *                 type: number
+ *               status:
+ *                 type: string
+ *                 enum: [DRAFT, PLANNING, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED]
+ *     responses:
+ *       200:
+ *         description: Trip updated successfully
+ *       404:
+ *         description: Trip not found
+ */
 router.patch(
     "/:id",
     validate(updateTripSchema),
     asyncHandler(async (req: AuthRequest, res: Response) => {
         const { id } = req.params;
 
-        // Verify ownership
         const existing = await prisma.trip.findFirst({
             where: { id, userId: req.user!.id },
         });
@@ -173,13 +318,33 @@ router.patch(
     })
 );
 
-// DELETE /trips/:id - Delete trip
+/**
+ * @openapi
+ * /api/v1/trips/{id}:
+ *   delete:
+ *     tags: [Trips]
+ *     summary: Delete a trip
+ *     description: Permanently deletes a trip and all associated data
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Trip deleted successfully
+ *       404:
+ *         description: Trip not found
+ */
 router.delete(
     "/:id",
     asyncHandler(async (req: AuthRequest, res: Response) => {
         const { id } = req.params;
 
-        // Verify ownership
         const existing = await prisma.trip.findFirst({
             where: { id, userId: req.user!.id },
         });
@@ -194,7 +359,28 @@ router.delete(
     })
 );
 
-// POST /trips/:id/duplicate - Duplicate a trip
+/**
+ * @openapi
+ * /api/v1/trips/{id}/duplicate:
+ *   post:
+ *     tags: [Trips]
+ *     summary: Duplicate a trip
+ *     description: Creates a copy of an existing trip including all itineraries and activities
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       201:
+ *         description: Trip duplicated successfully
+ *       404:
+ *         description: Trip not found
+ */
 router.post(
     "/:id/duplicate",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -216,7 +402,6 @@ router.post(
             return sendError(res, "Trip not found", 404);
         }
 
-        // Create duplicate
         const newTrip = await prisma.trip.create({
             data: {
                 userId: req.user!.id,

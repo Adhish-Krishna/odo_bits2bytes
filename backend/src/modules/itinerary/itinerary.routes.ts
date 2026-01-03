@@ -9,20 +9,40 @@ import {
 import { asyncHandler } from "../../middleware/error.middleware";
 import { authMiddleware, AuthRequest } from "../../middleware/auth.middleware";
 
-const router = Router({ mergeParams: true }); // Access :tripId from parent router
+const router = Router({ mergeParams: true });
 
 // All routes require authentication
 router.use(authMiddleware);
 
 // Helper to verify trip ownership
 const verifyTripOwnership = async (tripId: string, userId: string) => {
-    const trip = await prisma.trip.findFirst({
+    return prisma.trip.findFirst({
         where: { id: tripId, userId },
     });
-    return trip;
 };
 
-// GET /trips/:tripId/itinerary - Get full itinerary
+/**
+ * @openapi
+ * /api/v1/trips/{tripId}/itinerary:
+ *   get:
+ *     tags: [Itinerary]
+ *     summary: Get full itinerary
+ *     description: Returns the complete day-by-day itinerary for a trip
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Full itinerary with days and activities
+ *       404:
+ *         description: Trip not found
+ */
 router.get(
     "/",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -49,7 +69,49 @@ router.get(
     })
 );
 
-// POST /trips/:tripId/itinerary/days - Add a day/stop
+/**
+ * @openapi
+ * /api/v1/trips/{tripId}/itinerary/days:
+ *   post:
+ *     tags: [Itinerary]
+ *     summary: Add a day to itinerary
+ *     description: Creates a new day/stop in the trip itinerary
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [cityId, dayNumber, date]
+ *             properties:
+ *               cityId:
+ *                 type: string
+ *                 format: uuid
+ *               dayNumber:
+ *                 type: integer
+ *                 example: 1
+ *               date:
+ *                 type: string
+ *                 format: date
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Day added successfully
+ *       404:
+ *         description: Trip or city not found
+ *       409:
+ *         description: Day number already exists
+ */
 router.post(
     "/days",
     validate(addItineraryDaySchema),
@@ -62,13 +124,11 @@ router.post(
             return sendError(res, "Trip not found", 404);
         }
 
-        // Check if city exists
         const city = await prisma.city.findUnique({ where: { id: cityId } });
         if (!city) {
             return sendError(res, "City not found", 404);
         }
 
-        // Check if day number already exists
         const existingDay = await prisma.itinerary.findUnique({
             where: { tripId_dayNumber: { tripId, dayNumber } },
         });
@@ -92,7 +152,48 @@ router.post(
     })
 );
 
-// PATCH /trips/:tripId/itinerary/days/:dayId - Update day
+/**
+ * @openapi
+ * /api/v1/trips/{tripId}/itinerary/days/{dayId}:
+ *   patch:
+ *     tags: [Itinerary]
+ *     summary: Update a day
+ *     description: Updates day properties (city, date, notes)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *       - in: path
+ *         name: dayId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               cityId:
+ *                 type: string
+ *                 format: uuid
+ *               date:
+ *                 type: string
+ *                 format: date
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Day updated
+ *       404:
+ *         description: Trip not found
+ */
 router.patch(
     "/days/:dayId",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -118,7 +219,34 @@ router.patch(
     })
 );
 
-// DELETE /trips/:tripId/itinerary/days/:dayId - Remove day
+/**
+ * @openapi
+ * /api/v1/trips/{tripId}/itinerary/days/{dayId}:
+ *   delete:
+ *     tags: [Itinerary]
+ *     summary: Remove a day
+ *     description: Deletes a day and all its activities from the itinerary
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *       - in: path
+ *         name: dayId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Day removed
+ *       404:
+ *         description: Trip not found
+ */
 router.delete(
     "/days/:dayId",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -135,7 +263,55 @@ router.delete(
     })
 );
 
-// POST /trips/:tripId/itinerary/days/:dayId/activities - Add activity to day
+/**
+ * @openapi
+ * /api/v1/trips/{tripId}/itinerary/days/{dayId}/activities:
+ *   post:
+ *     tags: [Itinerary]
+ *     summary: Add activity to day
+ *     description: Schedules an activity for a specific day in the itinerary
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *       - in: path
+ *         name: dayId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [activityId, startTime, endTime]
+ *             properties:
+ *               activityId:
+ *                 type: string
+ *                 format: uuid
+ *               startTime:
+ *                 type: string
+ *                 example: "09:00"
+ *               endTime:
+ *                 type: string
+ *                 example: "12:00"
+ *               customNotes:
+ *                 type: string
+ *               customCost:
+ *                 type: number
+ *     responses:
+ *       201:
+ *         description: Activity added to day
+ *       404:
+ *         description: Trip, day, or activity not found
+ */
 router.post(
     "/days/:dayId/activities",
     validate(addItineraryActivitySchema),
@@ -148,13 +324,11 @@ router.post(
             return sendError(res, "Trip not found", 404);
         }
 
-        // Verify day exists
         const day = await prisma.itinerary.findUnique({ where: { id: dayId } });
         if (!day) {
             return sendError(res, "Day not found", 404);
         }
 
-        // Verify activity exists
         const activity = await prisma.activity.findUnique({
             where: { id: activityId },
         });
@@ -162,13 +336,11 @@ router.post(
             return sendError(res, "Activity not found", 404);
         }
 
-        // Get current max order index
         const maxOrder = await prisma.itineraryActivity.findFirst({
             where: { itineraryId: dayId },
             orderBy: { orderIndex: "desc" },
         });
 
-        // Parse time strings to Date objects (using a base date)
         const baseDate = new Date("2000-01-01");
         const parseTime = (time: string) => {
             const [hours, minutes] = time.split(":").map(Number);
@@ -194,7 +366,52 @@ router.post(
     })
 );
 
-// PATCH /trips/:tripId/itinerary/activities/:activityId - Update scheduled activity
+/**
+ * @openapi
+ * /api/v1/trips/{tripId}/itinerary/activities/{activityId}:
+ *   patch:
+ *     tags: [Itinerary]
+ *     summary: Update scheduled activity
+ *     description: Updates time, notes, or cost for a scheduled activity
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *       - in: path
+ *         name: activityId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               startTime:
+ *                 type: string
+ *                 example: "10:00"
+ *               endTime:
+ *                 type: string
+ *                 example: "13:00"
+ *               customNotes:
+ *                 type: string
+ *               customCost:
+ *                 type: number
+ *               orderIndex:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Activity updated
+ *       404:
+ *         description: Trip not found
+ */
 router.patch(
     "/activities/:activityId",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -230,7 +447,34 @@ router.patch(
     })
 );
 
-// DELETE /trips/:tripId/itinerary/activities/:activityId - Remove activity
+/**
+ * @openapi
+ * /api/v1/trips/{tripId}/itinerary/activities/{activityId}:
+ *   delete:
+ *     tags: [Itinerary]
+ *     summary: Remove activity from itinerary
+ *     description: Removes a scheduled activity from a day
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *       - in: path
+ *         name: activityId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Activity removed
+ *       404:
+ *         description: Trip not found
+ */
 router.delete(
     "/activities/:activityId",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -247,7 +491,52 @@ router.delete(
     })
 );
 
-// PATCH /trips/:tripId/itinerary/reorder - Reorder days/activities
+/**
+ * @openapi
+ * /api/v1/trips/{tripId}/itinerary/reorder:
+ *   patch:
+ *     tags: [Itinerary]
+ *     summary: Reorder days and activities
+ *     description: Updates the order of days or activities in the itinerary
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               days:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     orderIndex:
+ *                       type: integer
+ *               activities:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     orderIndex:
+ *                       type: integer
+ *     responses:
+ *       200:
+ *         description: Reorder complete
+ *       404:
+ *         description: Trip not found
+ */
 router.patch(
     "/reorder",
     asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -262,7 +551,6 @@ router.patch(
             return sendError(res, "Trip not found", 404);
         }
 
-        // Reorder days
         if (days?.length) {
             await Promise.all(
                 days.map((d) =>
@@ -274,7 +562,6 @@ router.patch(
             );
         }
 
-        // Reorder activities
         if (activities?.length) {
             await Promise.all(
                 activities.map((a) =>
